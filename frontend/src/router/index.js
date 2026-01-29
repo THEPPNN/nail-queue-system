@@ -13,7 +13,7 @@ import AdminAppointments from '../views/admin/Appointments.vue'
 import AdminServices from '../views/admin/Services.vue'
 
 const routes = [
-  // customer
+  // customer not login
   { path: '/', component: ServiceList },
   { path: '/booking/:serviceId', component: Booking },
   { path: '/success', component: BookingSuccess },
@@ -41,7 +41,7 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem("token");
 
-  if (to.path !== "/admin/login" && !token) {
+  if (to.path == "/admin" && !token) {
       next("/admin/login"); // ❌ ยังไม่ login
   } else {
       next(); // ✅ ผ่าน

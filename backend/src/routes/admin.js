@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const transporter = require("../services/mailer.js");
 
 router.post('/login', async (req, res) => {
     try {
@@ -37,7 +38,20 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/appointments', async (req, res) => {
-    const [rows] = await db.query('SELECT * FROM appointments');
+    const [rows] = await db.query(`SELECT
+        services.name as service_name,
+        appointments.id,
+        appointments.name,
+        appointments.email,
+        appointments.date,
+        appointments.phone,
+        appointments.start_time,
+        appointments.end_time,
+        appointments.status,
+        appointments.created_at
+        FROM appointments JOIN services ON appointments.service_id = services.id
+        order by DATE(appointments.date) desc, appointments.start_time asc
+        `);
     res.json(rows);
 });
 
@@ -51,9 +65,8 @@ router.post('/appointments/:id/cancel', async (req, res) => {
     const id = req.params.id;
 
     const [[booking]] = await db.query(`
-      SELECT c.email
+      SELECT email
       FROM appointments a
-      JOIN customers c ON c.id = a.customer_id
       WHERE a.id = ?
     `, [id]);
 
@@ -62,13 +75,29 @@ router.post('/appointments/:id/cancel', async (req, res) => {
         [id]
     );
 
-    await mailer.sendMail({
-        to: booking.email,
-        subject: 'ยกเลิกการจองคิว',
-        text: 'ทางร้านขออภัย คิวของคุณถูกยกเลิก'
-    });
-
     res.json({ message: 'cancelled' });
 });
+
+router.get("/appointments/calendar", async (req, res) => {
+    const [rows] = await db.query(`
+      SELECT 
+        a.id,
+        CONCAT(s.name) AS title,
+        CONCAT(a.date,'T',a.start_time) AS start,
+        CONCAT(a.date,'T',a.end_time) AS end,
+        a.phone,
+        a.name,
+        CASE a.status
+          WHEN 'approved' THEN '#bbdbdd'
+          WHEN 'pending' THEN '#f06292'
+          ELSE '#bdbdbd'
+        END AS color
+      FROM appointments a
+      JOIN services s ON s.id = a.service_id
+      WHERE a.status != 'cancelled'
+    `);
+  
+    res.json(rows);
+  });
 
 module.exports = router;
